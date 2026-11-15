@@ -20,6 +20,7 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SITE_DIR = os.path.join(os.path.dirname(BASE_DIR), "docs")
 STATE_DIR = os.path.join(BASE_DIR, "state")
+BILI_EXTRA_PATH = os.path.join(BASE_DIR, "bili_extra.json")
 
 TZ = timezone(timedelta(hours=8))
 
@@ -259,6 +260,16 @@ def build_updates(old_data, new_data, counts, source_mtime_text):
     return items
 
 
+def load_bili_extra():
+    if not os.path.exists(BILI_EXTRA_PATH):
+        return []
+    try:
+        with open(BILI_EXTRA_PATH, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return []
+
+
 def main():
     os.makedirs(SITE_DIR, exist_ok=True)
     os.makedirs(STATE_DIR, exist_ok=True)
@@ -283,6 +294,28 @@ def main():
             record["_monthlyNew"] = bool(month and month == current_month)
         columns[sheet_name] = cols
         new_data[sheet_name] = records
+
+    bili_extra = load_bili_extra()
+    if bili_extra and "探店清单" in new_data:
+        doc_links = {
+            record.get("视频链接")
+            for record in new_data["探店清单"]
+            if record.get("视频链接")
+        }
+        merged_extra = []
+        for item in bili_extra:
+            link = item.get("视频链接")
+            if link and link in doc_links:
+                continue
+            record = dict(item)
+            record["_key"] = item.get("_key") or ("bili:" + link)
+            added_at = item.get("_addedAt", "")
+            record["_addedAt"] = added_at
+            month = added_at[:7] if added_at else ""
+            record["_monthlyNew"] = bool(month and month == current_month)
+            merged_extra.append(record)
+        if merged_extra:
+            new_data["探店清单"] = merged_extra + new_data["探店清单"]
 
     prev_path = os.path.join(STATE_DIR, "prev.json")
     old_data = None
