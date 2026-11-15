@@ -459,7 +459,8 @@
       video.href = r["视频链接"];
       video.target = "_blank";
       video.rel = "noopener";
-      video.innerHTML = playIcon() + "<span>观看探店视频</span>";
+      const label = r["视频标题"] || "观看探店视频";
+      video.innerHTML = playIcon() + `<span>${escapeHTML(label)}</span>`;
       card.appendChild(video);
     }
 
