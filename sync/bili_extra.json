@@ -218,6 +218,7 @@
     "备注": "B站探店记录 · 2026-09-27",
     "视频链接": "https://www.bilibili.com/video/BV1vBah68ESg",
     "_key": "bili:BV1vBah68ESg",
-    "_addedAt": "2026-09-27T12:00:00+08:00"
+    "_addedAt": "2026-09-27T12:00:00+08:00",
+    "_skip": true
   }
 ]
