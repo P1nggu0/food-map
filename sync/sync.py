@@ -21,6 +21,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SITE_DIR = os.path.join(os.path.dirname(BASE_DIR), "docs")
 STATE_DIR = os.path.join(BASE_DIR, "state")
 BILI_EXTRA_PATH = os.path.join(BASE_DIR, "bili_extra.json")
+BILI_SEASON_BVID = "BV1zLuq6FEXq"
+BILI_SKIP_BVIDS = {"BV17we46xEyK"}
 
 TZ = timezone(timedelta(hours=8))
 
@@ -37,6 +39,15 @@ def fetch(url):
 
 def fetch_json(url):
     return json.loads(fetch(url).decode("utf-8"))
+
+
+def fetch_bili_json(url):
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": UA, "Referer": "https://www.bilibili.com/"},
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 def download_workbook():
@@ -138,6 +149,16 @@ def clean(value):
         return ""
     text = str(value).strip()
     return text
+
+
+def bvid_of(url):
+    m = re.search(r"BV[0-9A-Za-z]+", url or "")
+    return m.group(0) if m else ""
+
+
+def norm_name(name):
+    text = re.sub(r"[（(【\[].*?[）)】\]]", "", name or "")
+    return re.sub(r"[\s·\-\u3000]+", "", text).lower()
 
 
 def find_header(rows):
@@ -270,6 +291,92 @@ def load_bili_extra():
         return []
 
 
+def fetch_bili_episodes():
+    url = f"https://api.bilibili.com/x/web-interface/view?bvid={BILI_SEASON_BVID}"
+    data = fetch_bili_json(url)
+    season = data.get("data", {}).get("ugc_season") or {}
+    sections = season.get("sections") or []
+    episodes = []
+    for section in sections:
+        for ep in section.get("episodes", []):
+            arc = ep.get("arc", {})
+            episodes.append(
+                {
+                    "title": ep.get("title", ""),
+                    "bvid": ep.get("bvid", ""),
+                    "pubdate": arc.get("pubdate", 0),
+                }
+            )
+    return episodes
+
+
+def bili_name_from_title(title):
+    text = re.sub(r"^【[^】]*】\s*", "", title or "").strip()
+    if not text:
+        return title
+    if "：" in text:
+        tail = text.split("：")[-1]
+        name = re.split(r"[，,]", tail)[0].strip()
+        return name or title
+    if re.search(r"[，,]", text):
+        head = re.split(r"[，,]", text)[0].strip()
+        if len(head) <= 12 and not re.match(
+            r"^(上海|试营业|中国首店|大众点评|橙|黄浦|徐汇|静安|长宁|浦东|闵行|宝山|杨浦|虹口|普陀|嘉定|金山|松江|青浦|奉贤|崇明|多少|人均|特色|因为|好吃)",
+            head,
+        ):
+            return head
+    return title
+
+
+def build_bili_extra():
+    overrides = {}
+    for item in load_bili_extra():
+        key = item.get("_key", "")
+        if key.startswith("bili:"):
+            overrides[key[5:]] = item
+    try:
+        episodes = fetch_bili_episodes()
+    except Exception:
+        return load_bili_extra()
+
+    entries = []
+    seen = set()
+    for ep in reversed(episodes):
+        bvid = ep.get("bvid")
+        if not bvid or bvid in seen or bvid in BILI_SKIP_BVIDS:
+            continue
+        seen.add(bvid)
+        if bvid in overrides:
+            entries.append(overrides[bvid])
+            continue
+        date_text = ""
+        added_at = ""
+        pubdate = ep.get("pubdate") or 0
+        try:
+            day = datetime.fromtimestamp(pubdate, TZ)
+            date_text = day.strftime("%Y-%m-%d")
+            added_at = date_text + "T12:00:00+08:00"
+        except (OverflowError, OSError, ValueError):
+            pass
+        title = ep.get("title", "")
+        entries.append(
+            {
+                "餐厅名称": bili_name_from_title(title),
+                "视频标题": title,
+                "菜系/类型": "",
+                "区域": "",
+                "详细地址": "",
+                "人均消费": "",
+                "推荐菜品": "",
+                "备注": ("B站投稿 · " + date_text) if date_text else "B站投稿",
+                "视频链接": f"https://www.bilibili.com/video/{bvid}",
+                "_key": "bili:" + bvid,
+                "_addedAt": added_at,
+            }
+        )
+    return entries
+
+
 def main():
     os.makedirs(SITE_DIR, exist_ok=True)
     os.makedirs(STATE_DIR, exist_ok=True)
@@ -295,17 +402,25 @@ def main():
         columns[sheet_name] = cols
         new_data[sheet_name] = records
 
-    bili_extra = load_bili_extra()
+    bili_extra = build_bili_extra()
     if bili_extra and "探店清单" in new_data:
-        doc_links = {
-            record.get("视频链接")
+        doc_bvids = {
+            bvid_of(record.get("视频链接"))
             for record in new_data["探店清单"]
             if record.get("视频链接")
         }
+        doc_names = [
+            norm_name(record.get("餐厅名称"))
+            for record in new_data["探店清单"]
+            if norm_name(record.get("餐厅名称"))
+        ]
         merged_extra = []
         for item in bili_extra:
             link = item.get("视频链接")
-            if link and link in doc_links:
+            if link and bvid_of(link) in doc_bvids:
+                continue
+            name = norm_name(item.get("餐厅名称"))
+            if name and any(name == dn or name in dn or dn in name for dn in doc_names):
                 continue
             record = dict(item)
             record["_key"] = item.get("_key") or ("bili:" + link)
