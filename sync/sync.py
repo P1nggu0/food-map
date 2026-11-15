@@ -23,7 +23,7 @@ STATE_DIR = os.path.join(BASE_DIR, "state")
 BILI_EXTRA_PATH = os.path.join(BASE_DIR, "bili_extra.json")
 BILI_CACHE_PATH = os.path.join(STATE_DIR, "bili_cache.json")
 BILI_SEASON_BVID = "BV1zLuq6FEXq"
-BILI_SKIP_BVIDS = {"BV17we46xEyK"}
+BILI_START_DATE = "2026-09-29"
 BILI_CACHE_SECONDS = 2 * 24 * 60 * 60
 
 TZ = timezone(timedelta(hours=8))
@@ -288,9 +288,10 @@ def load_bili_extra():
         return []
     try:
         with open(BILI_EXTRA_PATH, "r", encoding="utf-8") as fh:
-            return json.load(fh)
+            items = json.load(fh)
     except (OSError, ValueError):
         return []
+    return [item for item in items if not item.get("_skip")]
 
 
 def fetch_bili_episodes():
@@ -374,12 +375,9 @@ def build_bili_extra():
     seen = set()
     for ep in reversed(episodes):
         bvid = ep.get("bvid")
-        if not bvid or bvid in seen or bvid in BILI_SKIP_BVIDS:
+        if not bvid or bvid in seen:
             continue
         seen.add(bvid)
-        if bvid in overrides:
-            entries.append(overrides[bvid])
-            continue
         date_text = ""
         added_at = ""
         pubdate = ep.get("pubdate") or 0
@@ -389,6 +387,11 @@ def build_bili_extra():
             added_at = date_text + "T12:00:00+08:00"
         except (OverflowError, OSError, ValueError):
             pass
+        if date_text and date_text < BILI_START_DATE:
+            continue
+        if bvid in overrides:
+            entries.append(overrides[bvid])
+            continue
         title = ep.get("title", "")
         entries.append(
             {
@@ -440,18 +443,10 @@ def main():
             for record in new_data["探店清单"]
             if record.get("视频链接")
         }
-        doc_names = [
-            norm_name(record.get("餐厅名称"))
-            for record in new_data["探店清单"]
-            if norm_name(record.get("餐厅名称"))
-        ]
         merged_extra = []
         for item in bili_extra:
             link = item.get("视频链接")
             if link and bvid_of(link) in doc_bvids:
-                continue
-            name = norm_name(item.get("餐厅名称"))
-            if name and any(name == dn or name in dn or dn in name for dn in doc_names):
                 continue
             record = dict(item)
             record["_key"] = item.get("_key") or ("bili:" + link)
