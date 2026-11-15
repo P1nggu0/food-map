@@ -1,0 +1,41 @@
+name: Sync KDocs
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kdocs-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install openpyxl
+
+      - name: Sync data from KDocs
+        run: python sync/sync.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "kdocs-sync-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data.json docs/meta.json docs/updates.json sync/state/prev.json
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "chore: sync kdocs data"
+            git push
+          fi
