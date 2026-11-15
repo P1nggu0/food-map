@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1c2733">
+  <title>辉夜姬Invanta 美食图鉴</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.32 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+            <line x1="6" y1="17" x2="18" y2="17"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>辉夜姬Invanta 美食图鉴</h1>
+          <p id="header-meta" class="header-meta">正在加载数据…</p>
+        </div>
+      </div>
+      <button id="updates-btn" class="updates-btn" type="button" aria-label="最近更新">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"/>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+        <span>最近更新</span>
+        <span id="updates-dot" class="dot hidden"></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page">
+    <nav id="tabs" class="tabs" aria-label="工作表"></nav>
+    <p id="sheet-note" class="sheet-note"></p>
+
+    <section class="toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="search-input" type="search" placeholder="搜索店名、推荐菜、区域…" autocomplete="off">
+        <button id="search-clear" class="icon-btn hidden" type="button" aria-label="清除搜索">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <button id="filter-toggle" class="filter-toggle" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="21" x2="4" y2="14"/>
+          <line x1="4" y1="10" x2="4" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12" y2="3"/>
+          <line x1="20" y1="21" x2="20" y2="16"/>
+          <line x1="20" y1="12" x2="20" y2="3"/>
+          <line x1="1" y1="14" x2="7" y2="14"/>
+          <line x1="9" y1="8" x2="15" y2="8"/>
+          <line x1="17" y1="16" x2="23" y2="16"/>
+        </svg>
+        <span>筛选</span>
+        <span id="filter-count" class="filter-count hidden">0</span>
+      </button>
+      <div class="sort-box">
+        <label for="sort-select" class="sr-only">排序</label>
+        <select id="sort-select">
+          <option value="default">默认顺序</option>
+          <option value="price-asc">人均从低到高</option>
+          <option value="price-desc">人均从高到低</option>
+          <option value="name">店名 A → Z</option>
+        </select>
+      </div>
+    </section>
+
+    <section id="filter-panel" class="filter-panel" hidden>
+      <div class="filter-grid">
+        <label class="field">
+          <span>区域</span>
+          <select id="filter-region"><option value="">全部区域</option></select>
+        </label>
+        <label class="field">
+          <span>菜系</span>
+          <select id="filter-cuisine"><option value="">全部菜系</option></select>
+        </label>
+        <label class="field">
+          <span>人均</span>
+          <select id="filter-price"><option value="">全部价位</option></select>
+        </label>
+        <label class="field" id="recommender-field">
+          <span>推荐人</span>
+          <select id="filter-recommender"><option value="">全部推荐人</option></select>
+        </label>
+      </div>
+      <div class="filter-actions">
+        <button id="reset-filters" class="ghost-btn" type="button">重置筛选</button>
+      </div>
+    </section>
+
+    <div class="result-bar">
+      <p id="result-count" class="result-count"></p>
+      <p id="active-filters" class="active-filters"></p>
+    </div>
+
+    <section id="card-grid" class="card-grid" aria-live="polite"></section>
+    <nav id="pagination" class="pagination" aria-label="分页"></nav>
+    <div id="empty-state" class="empty-state hidden">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+      <p>没有符合条件的餐厅</p>
+      <button id="empty-reset" class="ghost-btn" type="button">清除筛选</button>
+    </div>
+  </main>
+
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="updates-drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div>
+        <h2>最近更新</h2>
+        <p id="drawer-subtitle" class="drawer-subtitle"></p>
+      </div>
+      <button id="drawer-close" class="icon-btn" type="button" aria-label="关闭">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="updates-list" class="updates-list"></div>
+  </aside>
+
+  <footer class="site-footer">
+    <p>数据来自金山文档，仅供本地只读展示，不会修改原文档。</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
