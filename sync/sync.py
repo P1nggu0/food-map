@@ -21,8 +21,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SITE_DIR = os.path.join(os.path.dirname(BASE_DIR), "docs")
 STATE_DIR = os.path.join(BASE_DIR, "state")
 BILI_EXTRA_PATH = os.path.join(BASE_DIR, "bili_extra.json")
+BILI_CACHE_PATH = os.path.join(STATE_DIR, "bili_cache.json")
 BILI_SEASON_BVID = "BV1zLuq6FEXq"
 BILI_SKIP_BVIDS = {"BV17we46xEyK"}
+BILI_CACHE_SECONDS = 2 * 24 * 60 * 60
 
 TZ = timezone(timedelta(hours=8))
 
@@ -334,10 +336,32 @@ def build_bili_extra():
         key = item.get("_key", "")
         if key.startswith("bili:"):
             overrides[key[5:]] = item
-    try:
-        episodes = fetch_bili_episodes()
-    except Exception:
-        return load_bili_extra()
+
+    cache = None
+    if os.path.exists(BILI_CACHE_PATH):
+        try:
+            with open(BILI_CACHE_PATH, "r", encoding="utf-8") as fh:
+                cache = json.load(fh)
+        except (OSError, ValueError):
+            cache = None
+
+    episodes = None
+    if cache and time.time() - cache.get("fetched_at", 0) < BILI_CACHE_SECONDS:
+        episodes = cache.get("episodes") or []
+    else:
+        try:
+            episodes = fetch_bili_episodes()
+            with open(BILI_CACHE_PATH, "w", encoding="utf-8") as fh:
+                json.dump(
+                    {"fetched_at": time.time(), "episodes": episodes},
+                    fh,
+                    ensure_ascii=False,
+                )
+        except Exception:
+            if cache:
+                episodes = cache.get("episodes") or []
+            else:
+                return load_bili_extra()
 
     entries = []
     seen = set()
