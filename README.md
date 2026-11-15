@@ -5,9 +5,11 @@
 ## 结构
 
 - `docs/`：网站静态文件，GitHub Pages 直接发布此目录。
-- `sync/sync.py`：从金山文档下载并解析数据，生成 `docs/data.json`、`docs/meta.json`、`docs/updates.json`。
+- `sync/sync.py`：从金山文档下载并解析数据，并自动补全 B站《美食探店合集》里文档没有的新店，生成 `docs/data.json`、`docs/meta.json`、`docs/updates.json`。
+- `sync/bili_extra.json`：B站店名的人工覆盖表，优先于标题自动提取。
 - `sync/state/prev.json`：用于计算“最近更新”的上一次数据快照。
-- `.github/workflows/sync.yml`：每 15 分钟自动同步一次。
+- `sync/state/bili_cache.json`：B站投稿缓存，每两天刷新一次。
+- `.github/workflows/sync.yml`：每 15 分钟同步一次金山文档，B站按缓存两天刷新一次。
 
 ## 本地预览
 
