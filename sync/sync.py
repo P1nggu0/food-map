@@ -357,10 +357,17 @@ def build_bili_extra():
                     fh,
                     ensure_ascii=False,
                 )
-        except Exception:
+        except Exception as exc:
             if cache:
                 episodes = cache.get("episodes") or []
+                print("bili fetch failed, using cached episodes: %s" % exc, file=sys.stderr)
             else:
+                print("bili fetch failed, using override list: %s" % exc, file=sys.stderr)
+                try:
+                    with open(BILI_CACHE_PATH, "w", encoding="utf-8") as fh:
+                        json.dump({"fetched_at": 0, "episodes": []}, fh, ensure_ascii=False)
+                except OSError:
+                    pass
                 return load_bili_extra()
 
     entries = []
